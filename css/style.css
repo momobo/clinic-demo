@@ -1,0 +1,20 @@
+:root { --bg:#f6f8fa; --fg:#111827; --muted:#4b5563; --card:#fff; --accent:#0b5fff; --accent-fg:#fff; --warn:#fff4d6; --border:#d1d5db; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#10151c; --fg:#f3f4f6; --muted:#b6bdc8; --card:#1a222d; --accent:#5b8dff; --accent-fg:#06101f; --warn:#4a3b0a; --border:#374151; }
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:18px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width:32rem; margin:0 auto; padding:16px; }
+h1 { font-size:1.1rem; margin:0 0 12px; color:var(--muted); font-weight:600; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:16px; }
+.label { color:var(--muted); font-size:.9rem; margin:0; }
+.big { font-size:2.2rem; font-weight:700; margin:4px 0 8px; line-height:1.15; }
+.ticket-number { font-size:3rem; font-weight:800; margin:0; }
+button { font:inherit; min-height:48px; width:100%; border-radius:10px; border:2px solid var(--accent); background:transparent; color:var(--accent); padding:10px 16px; margin-top:10px; cursor:pointer; }
+button.primary { background:var(--accent); color:var(--accent-fg); }
+button:focus-visible { outline:3px solid var(--fg); outline-offset:2px; }
+.banner { background:var(--warn); border:2px solid #d4a017; border-radius:12px; padding:14px 16px; margin-bottom:16px; font-weight:600; }
+.hidden { display:none; }
+.note { color:var(--muted); font-size:.95rem; }
+.error { color:#b91c1c; font-weight:600; }
+@media (prefers-color-scheme: dark) { .error { color:#fca5a5; } }
