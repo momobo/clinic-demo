@@ -5,6 +5,7 @@ import { generateSeed } from "./seed.js";
 
 const KEY = "clinic-state-v1";
 const DEFAULT_JOIN_TOKEN = "demo";
+const DEFAULT_PASSWORD = "clinic";
 const MAX_RECORDED_MINUTES = 30;
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -15,6 +16,7 @@ function freshState(now) {
   return {
     open: true,
     joinToken: DEFAULT_JOIN_TOKEN,
+    password: DEFAULT_PASSWORD,
     openedAt: localIso(now),
     nextNumber: 1,
     nextOrder: 1,
@@ -29,7 +31,8 @@ export function createLocalStore({ storage = globalThis.localStorage, now = () =
   function load() {
     try {
       const raw = storage.getItem(KEY);
-      if (raw) return JSON.parse(raw);
+      // Older saved states may lack newer fields: fill them in.
+      if (raw) return { password: DEFAULT_PASSWORD, ...JSON.parse(raw) };
     } catch { /* fall through to a fresh state */ }
     const s = freshState(now());
     storage.setItem(KEY, JSON.stringify(s));
@@ -126,6 +129,70 @@ export function createLocalStore({ storage = globalThis.localStorage, now = () =
       }
       save(s);
       return structuredClone(next);
+    },
+
+    checkPassword: (candidate) => candidate === load().password,
+
+    removeTicket(id) {
+      const s = load();
+      const t = s.tickets.find((x) => x.id === id && x.status === "waiting");
+      if (!t) return false;
+      t.status = "removed";
+      save(s);
+      return true;
+    },
+
+    moveToFront(id) {
+      const s = load();
+      const waiting = s.tickets.filter((x) => x.status === "waiting");
+      const t = waiting.find((x) => x.id === id);
+      if (!t) return false;
+      t.order = Math.min(...waiting.map((x) => x.order)) - 1;
+      save(s);
+      return true;
+    },
+
+    /** Old join links stop working for taking numbers. Returns the new token. */
+    rotateJoinToken() {
+      const s = load();
+      s.joinToken = Math.random().toString(36).slice(2, 10);
+      save(s);
+      return s.joinToken;
+    },
+
+    /**
+     * Resets to the seed, then builds a test situation. clientToken is the
+     * browser's own patient token, so a scenario can include "your" ticket.
+     */
+    loadScenario(name, { clientToken } = {}) {
+      const s = freshState(now());
+      const t0 = now();
+      const addWaiting = (token) => {
+        s.tickets.push({ id: `t${s.nextOrder}`, number: s.nextNumber++, order: s.nextOrder++,
+          joinedAt: localIso(t0), status: "waiting", clientToken: token ?? `fake-${s.nextOrder}` });
+        return s.tickets[s.tickets.length - 1];
+      };
+      const addServed = (n, minutes) => {
+        for (let i = 0; i < n; i++) {
+          const at = localIso(new Date(t0.getTime() - (n - i) * minutes * 60000));
+          s.tickets.push({ id: `t${s.nextOrder}`, number: s.nextNumber++, order: s.nextOrder++,
+            joinedAt: at, servedAt: at, status: "served", clientToken: `fake-${s.nextOrder}` });
+          s.serviceEvents.push({ servedAt: at, durationMinutes: minutes, source: "real" });
+        }
+      };
+      switch (name) {
+        case "empty": break;
+        case "fast5": addServed(10, 2); for (let i = 0; i < 5; i++) addWaiting(); break;
+        case "closed": s.open = false; addWaiting(); addWaiting(); break;
+        case "patient-next": addWaiting(clientToken); break;
+        case "mid-cancel": {
+          const ts = [addWaiting(), addWaiting(), addWaiting(), addWaiting(), addWaiting(clientToken)];
+          ts[2].status = "cancelled"; // the 3rd patient gives up: the last one moves up
+          break;
+        }
+        default: throw new Error(`unknown scenario: ${name}`);
+      }
+      save(s);
     },
 
     reset() {

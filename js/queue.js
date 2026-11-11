@@ -10,7 +10,9 @@ export const waitingTickets = (state) =>
 export function findOwnTicket(state, clientToken) {
   if (!clientToken) return null;
   const mine = state.tickets.filter((t) => t.clientToken === clientToken);
-  return mine.length ? mine.sort((a, b) => b.order - a.order)[0] : null;
+  // Prefer a waiting ticket; otherwise the most recent one (numbers only grow,
+  // while "order" can change when staff move a patient to the front).
+  return mine.find((t) => t.status === "waiting") || mine.sort((x, y) => y.number - x.number)[0] || null;
 }
 
 export function realServiceMinutes(state) {
