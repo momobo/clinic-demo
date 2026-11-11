@@ -1,8 +1,8 @@
 // Patient page: renders the view model and sends taps to the store.
-import { createLocalStore } from "./store-local.js";
+import { createStore } from "./store.js";
 import { buildView } from "./queue.js";
 
-const store = createLocalStore();
+const store = await createStore();
 const app = document.getElementById("app");
 const params = new URLSearchParams(location.search);
 const joinToken = params.get("join");
@@ -41,14 +41,16 @@ function nowServingLine(v) {
 function joinButton() {
   return el("button", {
     className: "primary", textContent: "Take a number",
-    onclick: () => {
+    onclick: async () => {
       try {
-        store.takeNumber({ joinToken, clientToken });
+        await store.takeNumber({ joinToken, clientToken });
         message = "";
       } catch (e) {
-        message = e.message === "closed" ? "The clinic is closed." : "This link cannot be used to take a number. Please scan the QR code at the clinic.";
+        message = e.message === "closed" ? "The clinic is closed."
+          : e.message === "invalid-token" ? "This link cannot be used to take a number. Please scan the QR code at the clinic."
+          : "Could not reach the clinic system. Please try again.";
       }
-      render(store.getState());
+      render(lastState);
     },
   });
 }
@@ -69,7 +71,12 @@ function render(state) {
     if (confirming) {
       c.append(el("p", { className: "note", textContent: "Are you sure you want to give up your place?" }),
         el("button", { className: "primary", textContent: "Keep my place", onclick: () => { confirming = false; render(lastState); } }),
-        el("button", { textContent: "Yes, give up my place", onclick: () => { store.cancelTicket({ clientToken }); confirming = false; render(store.getState()); } }));
+        el("button", { textContent: "Yes, give up my place", onclick: async () => {
+          confirming = false;
+          try { await store.cancelTicket({ clientToken }); message = ""; }
+          catch { message = "Could not reach the clinic system. Please try again."; }
+          render(lastState);
+        } }));
     } else {
       c.append(el("button", { textContent: "Cancel my ticket", onclick: () => { confirming = true; render(lastState); } }));
     }
@@ -88,5 +95,12 @@ function render(state) {
   if (message) app.append(el("p", { className: "error", role: "alert", textContent: message }));
 }
 
-store.subscribe(render);
-setInterval(() => render(store.getState()), 60000); // refresh time-of-day dependent estimates
+function showOffline() {
+  app.replaceChildren(card(el("p", { className: "big", textContent: "Cannot reach the clinic system" }),
+    el("p", { className: "note", textContent: "Please check your connection and reload the page." })));
+}
+store.subscribe(render, showOffline);
+if (store.kind === "local") {
+  document.querySelector("main").append(el("p", { className: "note", textContent: "Demo mode: data stays in this browser." }));
+}
+setInterval(() => { if (lastState) render(lastState); }, 60000); // refresh time-of-day dependent estimates

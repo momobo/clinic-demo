@@ -143,8 +143,42 @@ test("scenario load replaces the previous queue and real history", () => {
 
 test("an older saved state without a password still gets the default", () => {
   const storage = fakeStorage();
-  storage.setItem("clinic-state-v1", JSON.stringify({ open: true, joinToken: "demo", openedAt: "2026-11-11T08:00:00",
+  storage.setItem("clinic-state-v2", JSON.stringify({ open: true, joinToken: "custom", openedAt: "2026-11-11T08:00:00",
     nextNumber: 1, nextOrder: 1, tickets: [], serviceEvents: [] }));
   const s = createLocalStore({ storage, now: () => NOW });
   assert.equal(s.checkPassword("clinic"), true);
+  assert.equal(s.getState().joinToken, "custom"); // the stored state was really read
+});
+
+test("the seed is generated in code, never stored", () => {
+  const storage = fakeStorage();
+  const s = createLocalStore({ storage, now: () => NOW });
+  s.addFakePatients(1);
+  const stored = JSON.parse(storage.getItem("clinic-state-v2"));
+  assert.equal(stored.serviceEvents.length, 0);
+  const seedRows = s.getState().serviceEvents.filter((e) => e.source === "seed");
+  assert.ok(seedRows.length > 500);
+  s.serveNext({ durationMinutes: 5 });
+  assert.equal(s.getState().serviceEvents.filter((e) => e.source === "seed").length, seedRows.length); // not doubled
+});
+
+test("old data is pruned: events past 90 days, ended tickets past 2 days", () => {
+  const storage = fakeStorage();
+  const old = { open: true, joinToken: "demo", password: "clinic", openedAt: "2026-01-01T08:00:00", nextNumber: 5, nextOrder: 5,
+    tickets: [
+      { id: "t1", number: 1, order: 1, joinedAt: "2026-11-01T09:00:00", status: "served", servedAt: "2026-11-01T09:10:00", clientToken: "x" },
+      { id: "t2", number: 2, order: 2, joinedAt: "2026-11-11T09:00:00", status: "cancelled", clientToken: "y" },
+      { id: "t3", number: 3, order: 3, joinedAt: "2026-10-01T09:00:00", status: "waiting", clientToken: "z" },
+      { id: "t4", number: 4, order: 4, joinedAt: "2026-11-11T10:00:00", status: "waiting", clientToken: "w" },
+    ],
+    serviceEvents: [
+      { servedAt: "2026-06-01T09:00:00", durationMinutes: 5, source: "real" },
+      { servedAt: "2026-11-10T09:00:00", durationMinutes: 5, source: "real" },
+    ] };
+  storage.setItem("clinic-state-v2", JSON.stringify(old));
+  const s = createLocalStore({ storage, now: () => NOW });
+  s.serveNext({ durationMinutes: 5 });
+  const st = s.getState();
+  assert.deepEqual(st.tickets.map((t) => t.id).sort(), ["t2", "t3", "t4"]); // t1 pruned; waiting t3 kept even if old
+  assert.equal(st.serviceEvents.filter((e) => e.source === "real").length, 2); // June one pruned, new one added
 });
