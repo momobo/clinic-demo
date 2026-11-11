@@ -15,6 +15,7 @@ export function createFirestoreStore({ config, now = () => new Date() }) {
   let cache = null; // last public state received
   let rawPassword = null;
   let creating = false;
+  let failure = null;
 
   async function mutate(fn) {
     return runTransaction(db, async (tx) => {
@@ -26,9 +27,19 @@ export function createFirestoreStore({ config, now = () => new Date() }) {
     });
   }
 
+  // No answer from the server within 10 s: tell the pages, instead of
+  // leaving them blank or showing an invented empty queue.
+  const giveUp = setTimeout(() => {
+    if (!cache) { failure = new Error("timeout"); errorListeners.forEach((fn) => fn(failure)); }
+  }, 10000);
+
   onSnapshot(
     ref,
     (snap) => {
+      // An empty snapshot that did not come from the server is not an answer
+      // (the server may be unreachable or refusing): keep waiting for it.
+      if (!snap.exists() && snap.metadata.fromCache) return;
+      clearTimeout(giveUp);
       if (!snap.exists()) {
         // First ever visit: show a fresh state and create the document.
         const s = freshState(now());
@@ -42,7 +53,7 @@ export function createFirestoreStore({ config, now = () => new Date() }) {
       }
       listeners.forEach((fn) => fn(structuredClone(cache)));
     },
-    (err) => errorListeners.forEach((fn) => fn(err)),
+    (err) => { clearTimeout(giveUp); failure = err; errorListeners.forEach((fn) => fn(err)); },
   );
 
   return {
@@ -52,6 +63,7 @@ export function createFirestoreStore({ config, now = () => new Date() }) {
       listeners.add(fn);
       if (onError) errorListeners.add(onError);
       if (cache) fn(structuredClone(cache));
+      else if (failure && onError) onError(failure);
       return () => { listeners.delete(fn); if (onError) errorListeners.delete(onError); };
     },
     checkPassword: async (candidate) => rawPassword !== null && candidate === rawPassword,
