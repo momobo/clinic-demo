@@ -3,11 +3,13 @@
 // so changes appear in about a second. Methods are async; same names as the
 // local store. Loaded from Google's CDN (no npm, no build step).
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getFirestore, doc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { initializeFirestore, doc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { createOps, freshState, withDefaults, publicState } from "./store-logic.js";
 
 export function createFirestoreStore({ config, now = () => new Date() }) {
-  const db = getFirestore(initializeApp(config));
+  // Mobile networks and proxies often break the streaming connection: let the
+  // SDK fall back to long polling when that happens.
+  const db = initializeFirestore(initializeApp(config), { experimentalAutoDetectLongPolling: true });
   const ref = doc(db, "clinic", "state");
   const ops = createOps(now);
   const listeners = new Set();
@@ -17,14 +19,27 @@ export function createFirestoreStore({ config, now = () => new Date() }) {
   let creating = false;
   let failure = null;
 
+  function publish(s) {
+    rawPassword = s.password;
+    cache = publicState(s);
+    listeners.forEach((fn) => fn(structuredClone(cache)));
+  }
+
+  // The page is updated as soon as OUR change commits, from the state the
+  // transaction computed, instead of waiting for the server's change stream
+  // (which can lag on phones). The server snapshot then confirms it.
   async function mutate(fn) {
-    return runTransaction(db, async (tx) => {
+    let finalState = null;
+    const result = await runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
       const s = snap.exists() ? withDefaults(snap.data()) : freshState(now());
-      const result = fn(s);
+      const r = fn(s);
       tx.set(ref, JSON.parse(JSON.stringify(s))); // drops undefined values
-      return JSON.parse(JSON.stringify(result ?? null));
+      finalState = s; // the last attempt wins if the transaction retries
+      return JSON.parse(JSON.stringify(r ?? null));
     });
+    if (finalState) publish(finalState);
+    return result;
   }
 
   // No answer from the server within 10 s: tell the pages, instead of
