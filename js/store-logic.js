@@ -52,6 +52,12 @@ export function prune(s, now) {
   s.tickets = s.tickets.filter((t) => t.status === "waiting" || (t.servedAt || t.joinedAt) >= tCut);
 }
 
+// Resetting the queue must not undo the clinic's own settings.
+function keepSettings(from, to) {
+  if (from.password) to.password = from.password;
+  if (from.joinToken) to.joinToken = from.joinToken;
+}
+
 function replaceState(s, next) {
   for (const k of Object.keys(s)) delete s[k];
   Object.assign(s, next);
@@ -184,11 +190,14 @@ export function createOps(now = () => new Date()) {
         }
         default: throw new Error(`unknown scenario: ${name}`);
       }
+      keepSettings(s, f);
       replaceState(s, f);
     },
 
     reset(s) {
-      replaceState(s, freshState(now()));
+      const f = freshState(now());
+      keepSettings(s, f);
+      replaceState(s, f);
     },
   };
 }

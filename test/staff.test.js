@@ -182,3 +182,20 @@ test("old data is pruned: events past 90 days, ended tickets past 2 days", () =>
   assert.deepEqual(st.tickets.map((t) => t.id).sort(), ["t2", "t3", "t4"]); // t1 pruned; waiting t3 kept even if old
   assert.equal(st.serviceEvents.filter((e) => e.source === "real").length, 2); // June one pruned, new one added
 });
+
+test("reset and scenarios keep the clinic's password and sign-up link", () => {
+  const storage = fakeStorage();
+  storage.setItem("clinic-state-v2", JSON.stringify({ open: true, joinToken: "mylink", password: "klee", openedAt: "2026-11-11T08:00:00",
+    nextNumber: 1, nextOrder: 1, tickets: [], serviceEvents: [] }));
+  const s = createLocalStore({ storage, now: () => NOW });
+  for (const name of ["empty", "fast5", "closed", "patient-next", "mid-cancel"]) {
+    s.loadScenario(name, { clientToken: "ME" });
+    assert.equal(s.checkPassword("klee"), true, name);
+    assert.equal(s.checkPassword("clinic"), false, name);
+    assert.equal(s.getState().joinToken, "mylink", name);
+  }
+  s.reset();
+  assert.equal(s.checkPassword("klee"), true);
+  assert.equal(s.getState().joinToken, "mylink");
+  assert.equal(s.getState().tickets.length, 0); // the queue itself was cleared
+});
