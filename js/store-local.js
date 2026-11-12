@@ -50,6 +50,7 @@ export function createLocalStore({ storage = globalThis.localStorage, now = () =
     addFakePatients: (n) => mutate((s) => ops.addFakePatients(s, n)),
     serveNext: (a) => mutate((s) => ops.serveNext(s, a)),
     removeTicket: (id) => mutate((s) => ops.removeTicket(s, id)),
+    markNoShow: (id) => mutate((s) => ops.markNoShow(s, id)),
     moveToFront: (id) => mutate((s) => ops.moveToFront(s, id)),
     rotateJoinToken: () => mutate((s) => ops.rotateJoinToken(s)),
     loadScenario: (name, a) => mutate((s) => ops.loadScenario(s, name, a)),

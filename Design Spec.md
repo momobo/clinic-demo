@@ -77,5 +77,6 @@ Patients always say "number", never "ticket". "Didn't show up" ends the entry an
 ## 7. Not in this round
 SMS, a real QR code generator, other languages, real staff accounts.
 
-## 8. Open decisions
-- Keep the screen awake while a patient holds a number (browser "wake lock")? It would reduce the sleeping-phone problem but uses battery, and not every phone supports it.
+## 8. Decisions made
+- The patient may leave the clinic and come back to the page; the page says plainly that it cannot alert a sleeping phone.
+- Screen wake lock: yes. While a patient holds a number and the page is visible, the page asks the browser to keep the screen on, and says so. If the browser does not support it, nothing changes; the "keep this page open" note is always shown.

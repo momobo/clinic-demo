@@ -128,6 +128,14 @@ export function createOps(now = () => new Date()) {
       return true;
     },
 
+    /** Called but did not show up: the entry ends; service history is not touched. */
+    markNoShow(s, id) {
+      const t = s.tickets.find((x) => x.id === id && x.status === "waiting");
+      if (!t) return false;
+      t.status = "noshow";
+      return true;
+    },
+
     moveToFront(s, id) {
       const waiting = s.tickets.filter((x) => x.status === "waiting");
       const t = waiting.find((x) => x.id === id);

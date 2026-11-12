@@ -18,3 +18,21 @@ button:focus-visible { outline:3px solid var(--fg); outline-offset:2px; }
 .note { color:var(--muted); font-size:.95rem; }
 .error { color:#b91c1c; font-weight:600; }
 @media (prefers-color-scheme: dark) { .error { color:#fca5a5; } }
+
+/* Part 3 additions */
+h2 { font-size: 1rem; margin: 0; }
+h2.label { font-weight: 400; }
+[tabindex="-1"]:focus { outline: none; }
+.status { min-height: 1.5em; margin: 0 0 8px; font-weight: 600; }
+.status:empty, .error:empty, .note:empty { display: none; }
+.number-small { font-size: 1.25rem; font-weight: 700; margin: 0 0 8px; }
+.banner.warn { background: var(--warn); }
+.banner.offline { border-style: dashed; }
+button.quiet { border-color: var(--border); color: var(--fg); font-size: .95rem; }
+.row { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.row p { margin: 0 0 4px; }
+.row .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row .actions button { margin-top: 4px; }
+a { color: var(--accent); }
+a:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.banner { border-color: var(--fg); }

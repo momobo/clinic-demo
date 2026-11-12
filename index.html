@@ -9,7 +9,9 @@
 <body>
   <main>
     <h1>Clinic wait time</h1>
-    <div id="app" aria-live="polite"><p class="note">Loading&hellip;</p></div>
+    <p id="status" class="status" role="status"></p>
+    <p id="alert" class="error" role="alert"></p>
+    <div id="app"><p class="note">Loading&hellip;</p></div>
   </main>
   <script type="module" src="js/patient.js"></script>
 </body>

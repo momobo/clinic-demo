@@ -41,9 +41,22 @@ export function estimateForPosition(state, position, now) {
 
 export function waitText(est, { forJoiner = false } = {}) {
   if (est.state === "next") return forJoiner ? "No wait" : "You're next";
-  if (est.state === "range") return `${est.low}–${est.high} min`;
+  if (est.state === "range") return `${est.low}\u2013${est.high} min`;
   return "Wait estimate not available yet";
 }
+
+export function ordinal(n) {
+  const suffix = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (suffix[(v - 20) % 10] || suffix[v] || suffix[0]);
+}
+
+export const positionText = (n) => (n === 1 ? "First in line" : `${ordinal(n)} in line`);
+
+export const lastCalledText = (n) => (n === null ? "Nobody called yet" : `Last called: #${n}`);
+
+export const waitingText = (n) =>
+  n === 0 ? "Nobody is waiting" : `${n} ${n === 1 ? "person is" : "people are"} waiting`;
 
 export function nowServingNumber(state) {
   const served = state.tickets.filter((t) => t.status === "served" && t.servedAt);
@@ -52,18 +65,23 @@ export function nowServingNumber(state) {
 }
 
 const ENDED = {
-  served: "You have been served. Thank you!",
-  cancelled: "Your ticket was cancelled. Take a new number to rejoin.",
-  removed: "Your ticket was removed by the staff. Please ask at the desk.",
+  served: "Your number was called. Thank you for waiting.",
+  cancelled: "You left the queue. You can take a new number if you change your mind.",
+  noshow: "Your number was called, but you were not here. Please see the front desk or take a new number.",
+  removed: "Your number was removed from the queue by the staff. Please ask at the front desk.",
 };
 
+export const KEEP_OPEN_NOTE = "Keep this page open. We cannot alert you if your phone goes to sleep.";
+export const JOIN_HELP = "To take a number, please use the QR code at the clinic or ask at the front desk.";
+
 /**
- * Everything the patient page needs. Exposes only the viewer's own ticket
- * number and the "now serving" number, never other patients' data.
+ * Everything the patient page needs, as ready-to-show text. Exposes only the
+ * viewer's own number and the last called number, never other patients' data.
  */
 export function buildView({ state, clientToken, hasJoinToken, now }) {
   const own = findOwnTicket(state, clientToken);
   const nowServing = nowServingNumber(state);
+  const lastCalled = lastCalledText(nowServing);
 
   if (own && own.status === "waiting") {
     const waiting = waitingTickets(state);
@@ -74,21 +92,26 @@ export function buildView({ state, clientToken, hasJoinToken, now }) {
       mode: "ticket",
       open: state.open,
       number: own.number,
+      numberText: `Your number: #${own.number}`,
       position,
+      positionText: positionText(position),
       waitText: waitText(est),
       nowServing,
+      lastCalledText: lastCalled,
+      keepOpenNote: KEEP_OPEN_NOTE,
       showTurnNear: near,
-      closedNote: state.open ? null : "The clinic is closed. Your ticket is kept.",
+      closedNote: state.open ? null : "The clinic is closed. Your number is kept.",
     };
   }
 
   if (own && ENDED[own.status]) {
     return { mode: "ended", open: state.open, message: ENDED[own.status], nowServing,
-      canJoin: state.open && hasJoinToken };
+      lastCalledText: lastCalled, canJoin: state.open && hasJoinToken, joinHelp: hasJoinToken ? null : JOIN_HELP };
   }
 
   if (!state.open) {
-    return { mode: "closed", open: false, message: "Clinic closed", nowServing, canJoin: false };
+    return { mode: "closed", open: false, message: "Clinic closed", detail: "Please try again later or ask at the front desk.",
+      nowServing, lastCalledText: lastCalled, canJoin: false };
   }
 
   const position = waitingTickets(state).length + 1;
@@ -98,7 +121,10 @@ export function buildView({ state, clientToken, hasJoinToken, now }) {
     open: true,
     waitText: waitText(est, { forJoiner: true }),
     ahead: position - 1,
+    waitingText: waitingText(position - 1),
     nowServing,
+    lastCalledText: lastCalled,
     canJoin: hasJoinToken,
+    joinHelp: hasJoinToken ? null : JOIN_HELP,
   };
 }

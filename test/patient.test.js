@@ -143,7 +143,7 @@ test("served and removed patients see a closing message", () => {
   s.serveNext({ durationMinutes: 6 });
   const v = view(s, "A");
   assert.equal(v.mode, "ended");
-  assert.match(v.message, /served/);
+  assert.match(v.message, /called/);
   assert.equal(v.nowServing, 1);
 });
 
