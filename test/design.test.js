@@ -106,3 +106,47 @@ test("last called shows the most recently called number", () => {
   s.serveNext({ durationMinutes: 5 });
   assert.equal(pv(s, "Z").lastCalledText, "Last called: #1");
 });
+
+// ---------- staff view (Part 3) ----------
+import { buildStaffView, messages, SCENARIOS } from "../js/staff-view.js";
+
+test("staff home texts: status line, next patient, call button", () => {
+  const s = mk();
+  let v = buildStaffView(s.getState());
+  assert.equal(v.statusLine, "Open, nobody waiting");
+  assert.equal(v.nextHeading, "Nobody is waiting");
+  assert.equal(v.callLabel, "Call next patient");
+  s.addFakePatients(3);
+  v = buildStaffView(s.getState());
+  assert.equal(v.statusLine, "Open, 3 waiting");
+  assert.equal(v.nextHeading, "Next: #1");
+  assert.equal(v.callLabel, "Call next patient (#1)");
+  assert.equal(v.listHeading, "Waiting (3)");
+  assert.match(v.nextDetail, /^Waiting since \d\d:\d\d$/);
+  s.setOpen(false);
+  assert.equal(buildStaffView(s.getState()).statusLine, "Closed, 3 waiting");
+});
+
+test("every staff row button has a unique accessible name that includes the number", () => {
+  const s = mk();
+  s.addFakePatients(6);
+  const rows = buildStaffView(s.getState()).waiting;
+  const labels = rows.flatMap((r) => [r.noShowLabel, r.removeLabel, r.moveLabel]).filter(Boolean);
+  assert.equal(new Set(labels).size, labels.length);
+  rows.forEach((r) => {
+    assert.ok(r.noShowLabel.includes(`#${r.number}`) && r.removeLabel.includes(`#${r.number}`));
+  });
+  assert.equal(rows[0].moveLabel, null); // the first row cannot move to the front
+  assert.ok(rows[1].moveLabel.includes("#2"));
+});
+
+test("staff messages say what happened; no developer words anywhere", () => {
+  assert.equal(messages.called(11, 4), "Called #11. 4 waiting.");
+  assert.equal(messages.called(11, 0), "Called #11. Nobody else is waiting.");
+  assert.equal(messages.noShow(12), "#12 marked as didn't show up.");
+  assert.equal(messages.removed(13), "Removed #13 from the queue.");
+  assert.equal(messages.moved(14), "Moved #14 to the front.");
+  const all = [...Object.values(messages).filter((m) => typeof m === "string"), ...SCENARIOS.map((x) => x[1])].join(" | ");
+  assert.doesNotMatch(all, /token|ticket|scenario|rotate|serve next|demo mode/i);
+  assert.match(messages.saveFailed, /Nothing was changed/);
+});

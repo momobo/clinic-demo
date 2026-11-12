@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><body>
+<script type="module">
+const log = [];
+try {
+  const { createStore } = await import("./js/store.js");
+  const a = await createStore();
+  const s = await new Promise((res, rej) => { const un = a.subscribe((x) => { un(); res(x); }, rej); });
+  log.push("live store: " + a.kind + ", open=" + s.open + ", waiting=" + s.tickets.filter(t => t.status === "waiting").length + ", join token is the default 'demo': " + (s.joinToken === "demo"));
+  log.push("password 'klee' accepted: " + await a.checkPassword("klee"));
+  log.push("old password 'clinic' accepted: " + await a.checkPassword("clinic"));
+} catch (e) { log.push("FAILED: " + (e.code || e.message)); }
+await fetch("/report", { method: "POST", body: log.join("\n") });
+</script>

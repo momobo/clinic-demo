@@ -37,3 +37,45 @@ Verified = measured by a tool or script. Suspected = read from the code or judge
 
 ## Summary
 Automated checks pass; the real problems are experiential and about focus: wrong first thing on the ticket screen, staff vocabulary, no acknowledgement of actions, no stale-data or sleeping-phone warning, and focus lost on every update.
+
+---
+
+# After the rebuild (2026-11-12)
+Same method as the baseline: axe-core 4.10 in headless Chrome, scripted focus and message checks, local demo store. 57 unit tests pass.
+
+## Before and after
+| Check | Baseline | After |
+|---|---|---|
+| Axe violations | 0 (10 states) | 0 (15 states: 8 patient, 7 staff) |
+| Focus when another patient joins | lost to the page body | stays on the same control |
+| Focus after Leave / Confirm / Call next | lost | moves where the spec says |
+| Staff row buttons | identical names repeated | each names its patient, all unique |
+| Feedback after a staff action | none | visible message, announced once |
+| Largest text on the ticket screen | ticket number | the wait |
+| Offline | nothing shown | banner and "Updated hh:mm" |
+| Developer words in the interface | several | none (a test enforces it) |
+| Sleeping phone | not mentioned | stated on the page; screen wake lock requested |
+
+## What the AI missed (and how it was found)
+1. Focus was lost on every update. The first build redrew the whole page. Axe cannot see this; only a scripted focus test showed it.
+2. Staff buttons with the same name ("Remove" x4). The AI wrote them without thinking about a screen reader.
+3. Developer words in the interface ("Rotate join token", "scenarios", "Demo mode"), written for the builder, not the clinic admin.
+4. "Remove" was ambiguous (no-show, mistake, or left?). Needed a design decision, not code.
+5. The turn-near banner needs the page open, and the first build never said so. The code was correct; the promise to the patient was not.
+6. Staff got no acknowledgement of actions.
+7. When the database refused our connection, the first Firestore version showed an empty queue ("No wait") instead of an error. Found only by testing against the real database.
+8. The turn-near rule fires late in a normal clinic (position 2 with 6-minute visits shows 10-15 min). The tests passed; the rule did not match what the patient needs. Still open.
+9. A flag meant to test dark mode silently did nothing; dark contrast was calculated, not looked at.
+
+## What cannot be claimed
+Axe finds roughly a third of accessibility problems. Nothing here replaces a real screen-reader pass, keyboard-only use, or a real person.
+
+## Manual checks (to be done by a person; fill in)
+| Check | How | Result |
+|---|---|---|
+| VoiceOver, patient: take a number | Turn VoiceOver on (Cmd+F5), open the patient page with the join link, take a number. Is "You took number N" heard? Is the wait read first? | |
+| VoiceOver, patient: leave the queue | Does focus land on "Leave the queue?" and is the result read? | |
+| Keyboard only, staff | Tab through staff home. Call next with Enter. Can you reach every control, and is the focus ring always visible? | |
+| 200% zoom | Browser zoom to 200% on both pages. Any sideways scroll or cut-off text? | |
+| Dark mode | Switch the device to dark mode. Is everything readable? | |
+| Phone, sleeping | Take a number, lock the phone, wait. Does the screen stay on (wake lock) and what do you see on return? | |
